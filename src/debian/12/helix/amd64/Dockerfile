@@ -1,49 +1,27 @@
-FROM debian:bookworm
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-preview-bookworm-slim
 
 # Install Helix Dependencies
 
-RUN apt-get update && \
-    apt-get install -y \
-        autoconf \
-        automake \
-        at \
-        build-essential \
-        curl \
-        gcc \
-        gdb \
-        git \
-        iputils-ping \
-        libcurl4 \
-        libffi-dev \
-        libgdiplus \
-        libicu-dev \
-        libssl-dev \
-        libtool \
-        libunwind8 \
-        locales \
-        locales-all \
-        python3-dev \
-        python3-pip \
-        software-properties-common \
-        sudo \
-        tzdata \
-        unzip \
-    && rm -rf /var/lib/apt/lists/* \
-    && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
+    python3-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV LANG=en_US.utf8
-
-RUN ln -sf /usr/bin/python3 /usr/bin/python && \
-    python3 -m pip install virtualenv==20.17.1 --break-system-packages && \
-    python3 -m pip download --no-deps helix-scripts --index-url https://dnceng.pkgs.visualstudio.com/public/_packaging/helix-client-prod/pypi/simple && \
-    python3 -m pip install ./helix_scripts-*-py3-none-any.whl --break-system-packages
-
-# Create helixbot user and give rights to sudo without password
-# additionally, preinstall the virtualenv packages used for VSTS reporting to save time
-RUN /usr/sbin/adduser --disabled-password --gecos '' --uid 1000 --shell /bin/bash --ingroup adm helixbot && \
+# create helixbot user and give rights to sudo without password
+RUN useradd --uid 1000 --shell /bin/bash --create-home --gid adm helixbot && \
     chmod 755 /root && \
     echo "helixbot ALL=(ALL)       NOPASSWD: ALL" > /etc/sudoers
 
+ENV LANG=en-US.UTF-8
+
 USER helixbot
 
-RUN python -m virtualenv /home/helixbot/.vsts-env
+ARG python3=/home/helixbot/env/bin/python3
+
+RUN cd \
+    && python3 -m venv env \
+    && $python3 -m pip download --no-deps helix-scripts --index-url https://dnceng.pkgs.visualstudio.com/public/_packaging/helix-client-prod/pypi/simple \
+    && $python3 -m pip install ./helix_scripts-*-py3-none-any.whl
